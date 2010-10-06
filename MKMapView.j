@@ -335,7 +335,6 @@ var MapTypeMappings = [
             center: [centerCoordinate latLng],
             mapTypeId: MapTypeMappings[mapType],
             keyboardShortcuts: NO,
-            draggable: scrollEnabled,
             navigationControl: scrollEnabled,
             scrollwheel: zoomEnabled,
             scaleControl: zoomEnabled,
@@ -344,7 +343,6 @@ var MapTypeMappings = [
             zoom: zoom
         }
         
-		console.log("layout subviews");
         _map = new google.maps.Map(_DOMElement, options);
         
         var overlay = new NilOverlay(_map);
