@@ -21,7 +21,7 @@
  */
 
 @import <AppKit/CPView.j>
-
+@import "CLLocation.j"
 
 MKMapTypeStandard = 0;
 MKMapTypeSatellite = 1;
@@ -66,7 +66,8 @@ var MapTypeMappings = [
     if (self)
     {
         mapType = MKMapTypeStandard;
-        zoom = 9;
+        zoom = 2;
+		centerCoordinate = [[CLLocation alloc] initWithLatitude:35.173808 longitude:-22.851562];
         
         zoomEnabled = YES;
         scrollEnabled = YES;
@@ -343,6 +344,7 @@ var MapTypeMappings = [
             zoom: zoom
         }
         
+		console.log("layout subviews");
         _map = new google.maps.Map(_DOMElement, options);
         
         var overlay = new NilOverlay(_map);
