@@ -69,13 +69,18 @@
 
 - (void)setImage:(CPImage)anImage
 {
+	[self setImage:anImage anchor:CPPointMake(0,0)];
+}
+
+- (void)setImage:(CPImage)anImage anchor:(CPPoint)aPoint
+{
     if (image === anImage)
         return;
     
     image = anImage;
     
     if (_marker)
-        _marker.setIcon([image filename]);
+        _marker.setIcon([image filename], new google.maps.Size([image size].width, [image size].height), new google.maps.Point(aPoint.x, aPoint.y));
 }
 
 - (void)setSelected:(BOOL)aFlag animated:(BOOL)animated
