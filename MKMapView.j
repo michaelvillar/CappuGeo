@@ -210,8 +210,10 @@ var MapTypeMappings = [
 - (void)selectAnnotation:(MKAnnotation)anAnnotation animated:(BOOL)animated
 {
     var view = [self viewForAnnotation:anAnnotation];
+	if([view isSelected])
+		return [self deselectAnnotation:anAnnotation animated:animated];
     [view setSelected:YES animated:animated];
-    
+
     [self deselectAllAnnotationsAnimated:animated];
     
     if ([view isSelected])
@@ -231,6 +233,10 @@ var MapTypeMappings = [
 {
     for (var i = 0, count = selectedAnnotations.length; i < count; i++)
         [self deselectAnnotation:selectedAnnotations[i] animated:animated];
+}
+
+- (CPArray)selectedAnnotations {
+	return selectedAnnotations;
 }
 
 @end
