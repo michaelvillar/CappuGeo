@@ -388,7 +388,8 @@ var MapTypeMappings = [
 
 - (void)_centerChanged
 {
-    
+	if ([delegate respondsToSelector:@selector(mapViewDidChangeCenter:)])
+        [delegate mapViewDidChangeCenter:self];
 }
 
 - (void)_zoomChanged
