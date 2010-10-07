@@ -239,6 +239,8 @@ var MapTypeMappings = [
 
 - (CGPoint)convertCoordinate:(CLLocation)aLocation toPointToView:(CPView)aView
 {
+	if(!_projection)
+		return nil;
     var point = _projection.fromLatLngToContainerPixel(aLocation.isa ? [aLocation latLng] : aLocation);
     return [self convertPoint:CGPointMake(point.x, point.y) toView:aView];
 }
