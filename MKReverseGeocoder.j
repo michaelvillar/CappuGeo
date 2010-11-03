@@ -29,10 +29,12 @@
     id              delegate    @accessors;
     CLLocation      coordinate  @accessors(readonly);
     MKPlacemark     placemark   @accessors(readonly);
+	MKCoordinateRegion region	@accessors(readonly);
 
     BOOL            querying    @accessors(readonly);
 
     JSObject        _geocoder;
+	CPString		_address;
 }
 
 - (id)initWithCoordinate:(CLLocation)aLocation
@@ -45,6 +47,20 @@
     return self;
 }
 
+- (id)initWithAddress:(CPString)anAddress
+{
+    self = [super init];
+
+    if (self)
+        _address = anAddress;
+
+    return self;
+}
+
+- (CPString)address {
+	return _address;
+}
+
 - (void)start
 {
     if (querying)
@@ -52,8 +68,14 @@
 
     querying = YES;
 
+	var request = { };
+	if(_address)
+		request['address'] = _address;
+	else
+		request['latLng'] = [coordinate latLng];
+
     _geocoder = new google.maps.Geocoder();
-    _geocoder.geocode({latLng: [coordinate latLng]}, function(results, status) {
+    _geocoder.geocode(request, function(results, status) {
         if (!querying)
             return;
 
@@ -74,6 +96,8 @@
     var object = {};
 
     object['description'] = results[0].formatted_address;
+	var geometry = results[0]['geometry'];
+	region = latLngBoundsToMKCoordinateRegion(geometry['viewport']);
 
     results = results[0]['address_components'];
     for (var i = 0, count = results.length; i < count; i++)

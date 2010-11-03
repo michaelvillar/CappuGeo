@@ -48,7 +48,7 @@
 
 - (id)initWithAnnotation:(MKAnnotation)anAnnotation
 {
-    self = [super init];
+    self = [super initWithFrame:CGRectMakeZero()];
     
     if (self)
     {
@@ -90,27 +90,38 @@
     if ([annotation respondsToSelector:@selector(setSelected:)])
         [annotation setSelected:selected];
     
-    if (selected)
-    {
-        if (!_calloutView)
-            _calloutView = [[MKCalloutView alloc] init];
-        
-        if ([annotation respondsToSelector:@selector(viewForCallout)])
-            [_calloutView setView:[annotation viewForCallout]];
-        else
-            [_calloutView setStringValue:[annotation title]];
-        
-        var windowView = [[mapView window] contentView],
-            location = [mapView convertCoordinate:[annotation coordinate] toPointToView:windowView];
-        
-        [_calloutView setLeftAccessoryView:leftCalloutAccessoryView];
-        [_calloutView setRightAccessoryView:rightCalloutAccessoryView];
-        [_calloutView setCenter:CGPointMake(location.x + calloutOffset.x, location.y + calloutOffset.y)];
-        [windowView addSubview:_calloutView];
-    }
-    else
-        [_calloutView removeFromSuperview];
+	if([annotation title] && [[annotation title] length] > 0) {
+	    if (selected)
+	    {
+	        if (!_calloutView)
+	            _calloutView = [[MKCalloutView alloc] init];
+
+	        if ([annotation respondsToSelector:@selector(viewForCallout)])
+	            [_calloutView setView:[annotation viewForCallout]];
+	        else
+	            [_calloutView setStringValue:[annotation title]];
+
+	        var windowView = [[mapView window] contentView];
+
+	        [_calloutView setLeftAccessoryView:leftCalloutAccessoryView];
+	        [_calloutView setRightAccessoryView:rightCalloutAccessoryView];
+			[self updateCalloutCenter];
+	        [windowView addSubview:_calloutView];
+	    }
+	    else
+	        [_calloutView removeFromSuperview];
+	}
 }
+
+- (void)updateCalloutCenter {
+	if(_calloutView && selected) {
+		var windowView = [[mapView window] contentView],
+            location = [mapView convertCoordinate:[annotation coordinate] toPointToView:windowView];
+		[_calloutView setCenter:CGPointMake(location.x + calloutOffset.x, location.y + calloutOffset.y)];
+	}
+}
+
+- (void)updateFrame {}
 
 - (void)mouseDown:(CPEvent)anEvent
 {
@@ -137,6 +148,7 @@
         _listeners.push(google.maps.event.addListener(_marker, 'mouseover', function(e) {[self mouseEntered:e]}));
         _listeners.push(google.maps.event.addListener(_marker, 'mouseout', function(e) {[self mouseExited:e]}));
         _listeners.push(google.maps.event.addListener(_marker, 'click', function(e) {e.stopPropagation(); [self mouseDown:e]}));
+		_listeners.push(google.maps.event.addListener(_marker, 'position_changed', function(e) {[self positionChanged:e]}));
     }
     
     if (!mapView && _marker)
@@ -146,6 +158,18 @@
         for (var i = 0, count = _listeners.length; i < count; i++)
             google.maps.event.removeListener(_listeners[i]);
     }
+}
+
+- (void)positionChanged:(id)event {
+	[self _updateAnnotationFromMarker];
+}
+
+- (void)_updateAnnotationFromMarker {
+	if(!_marker)
+		return;
+	[[annotation coordinate] setLatLng:_marker.getPosition()];
+	[self updateFrame];
+	[self updateCalloutCenter];
 }
 
 - (JSObject)_icon

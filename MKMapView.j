@@ -28,12 +28,17 @@ MKMapTypeSatellite = 1;
 MKMapTypeHybrid = 2;
 MKMapTypeTerrain = 3;
 
-var MapTypeMappings = [
-    google.maps.MapTypeId.ROADMAP,
-    google.maps.MapTypeId.SATELLITE,
-    google.maps.MapTypeId.HYBRID,
-    google.maps.MapTypeId.TERRAIN
-];
+try {
+	var MapTypeMappings = [
+	    google.maps.MapTypeId.ROADMAP,
+	    google.maps.MapTypeId.SATELLITE,
+	    google.maps.MapTypeId.HYBRID,
+	    google.maps.MapTypeId.TERRAIN
+	];	
+}
+catch(e) {
+	
+}
 
 @implementation MKMapView : CPView
 {
@@ -99,7 +104,9 @@ var MapTypeMappings = [
         _map.setZoom(zoom);
     else
         [self setNeedsLayout];
-    
+
+	[self updateAnnotations];
+	    
     if ([delegate respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
         [delegate mapView:self regionDidChangeAnimated:animated];
 }
@@ -125,9 +132,27 @@ var MapTypeMappings = [
         [delegate mapView:self regionDidChangeAnimated:animated];
 }
 
+- (MKCoordinateRegion)region {
+	return latLngBoundsToMKCoordinateRegion(_map.getBounds());
+}
+
 - (MKCoordinateRegion)regionThatFits:(MKCoordinateRegion)aRegion
 {
-    
+	return nil;
+}
+
+- (void)setRegion:(MKCoordinateRegion)region animated:(BOOL)animated {
+	var sw = new google.maps.LatLng([region.center latLng].lat() - region.span.latitudeDelta / 2,
+								[region.center latLng].lng() - region.span.longitudeDelta / 2);
+	var ne = new google.maps.LatLng([region.center latLng].lat() + region.span.latitudeDelta / 2,
+								[region.center latLng].lng() + region.span.longitudeDelta / 2);
+	_map.fitBounds(new google.maps.LatLngBounds(sw, ne));
+}
+
+- (void)setMapType:(MKMapType)aType {
+	mapType = aType;
+	if(_map)
+		_map.setMapTypeId(MapTypeMappings[mapType]);
 }
 
 @end
@@ -166,7 +191,8 @@ var MapTypeMappings = [
         return;
     
     [annotations removeObject:anAnnotation];
-    
+    [selectedAnnotations removeObject:anAnnotation];
+
     var view = [self viewForAnnotation:anAnnotation];
     [view setMapView:nil];
 }
@@ -174,8 +200,13 @@ var MapTypeMappings = [
 - (void)removeAnnotations:(CPArray)anArray
 {
     var annotation;
+	anArray = [anArray copy];
     while (annotation = anArray.pop())
         [self removeAnnotation:annotation];
+}
+
+- (void)removeAllAnnotations {
+	[self removeAnnotations:annotations];
 }
 
 - (MKAnnotationView)viewForAnnotation:(MKAnnotation)anAnnotation
@@ -207,14 +238,22 @@ var MapTypeMappings = [
     return view;
 }
 
+- (void)updateAnnotations {
+	var i,
+		view;
+	for(i=0;i<[annotations count];i++) {
+		view = [self viewForAnnotation:[annotations objectAtIndex:i]];
+		[view updateFrame];
+	}
+}
+
 - (void)selectAnnotation:(MKAnnotation)anAnnotation animated:(BOOL)animated
 {
     var view = [self viewForAnnotation:anAnnotation];
 	if([view isSelected])
 		return [self deselectAnnotation:anAnnotation animated:animated];
-    [view setSelected:YES animated:animated];
-
     [self deselectAllAnnotationsAnimated:animated];
+    [view setSelected:YES animated:animated];
     
     if ([view isSelected])
         selectedAnnotations.push(anAnnotation);
@@ -246,14 +285,19 @@ var MapTypeMappings = [
 - (CGPoint)convertCoordinate:(CLLocation)aLocation toPointToView:(CPView)aView
 {
 	if(!_projection)
-		return nil;
+		return CGPointMake(0,0);
     var point = _projection.fromLatLngToContainerPixel(aLocation.isa ? [aLocation latLng] : aLocation);
     return [self convertPoint:CGPointMake(point.x, point.y) toView:aView];
 }
 
 - (CLLocation)convertPoint:(CGPoint)aPoint toCoordinateFromView:(CPView)aView
 {
-    
+    if (!_projection)
+		return [[CLLocation alloc] init];
+
+    var location = [self convertPoint:aPoint fromView:aView],
+        latlng = _projection.fromContainerPixelToLatLng(new google.maps.Point(location.x, location.y));
+	return [[CLLocation alloc] initWithLatitude:latlng.lat() longitude:latlng.lng()];
 }
 
 - (MKCoordinateRegion)convertRect:(CGRect)aRect toRegionFromView:(CPView)aView
@@ -327,7 +371,7 @@ var MapTypeMappings = [
 
 - (void)_mouseDown:(CPEvent)anEvent
 {
-    [self deselectAllAnnotationsAnimated:YES];
+
 }
 
 @end
@@ -336,7 +380,7 @@ var MapTypeMappings = [
 
 - (void)layoutSubviews
 {
-    if (!_map && centerCoordinate && zoom)
+    if (!_map && centerCoordinate && zoom && google)
     {
         var options = {
             backgroundColor: [[CPColor clearColor] cssString],
@@ -346,7 +390,7 @@ var MapTypeMappings = [
             navigationControl: scrollEnabled,
             scrollwheel: zoomEnabled,
             scaleControl: zoomEnabled,
-            disableDoubleClickZoom: !zoomEnabled,
+			streetViewControl: NO,
             disableDefaultUI: !useDefaultControls,
             zoom: zoom
         }
@@ -355,9 +399,14 @@ var MapTypeMappings = [
         
         var overlay = new NilOverlay(_map);
         
-        setTimeout(function(){
+		var projectionTimeoutFunction = function(){
             _projection = overlay.getProjection();
-        }, 100);
+			if(!_projection)
+				setTimeout(projectionTimeoutFunction,100);
+			else
+				[self updateAnnotations];
+		};
+		projectionTimeoutFunction();
         
         google.maps.event.addListener(_map, 'tilesloaded', function() {[self _finishLoadingTiles]});
         google.maps.event.addListener(_map, 'center_changed', function() {[self _centerChanged]});
@@ -394,6 +443,7 @@ var MapTypeMappings = [
 
 - (void)_centerChanged
 {
+	[self updateAnnotations];
 	if ([delegate respondsToSelector:@selector(mapViewDidChangeCenter:)])
         [delegate mapViewDidChangeCenter:self];
 }
@@ -410,12 +460,16 @@ var MapTypeMappings = [
         [delegate mapView:self regionWillChangeAnimated:YES];
         
     zoom = newZoom;
-    
+
+	[self updateAnnotations];
+
     if ([delegate respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
         [delegate mapView:self regionDidChangeAnimated:YES];
     
     if ([delegate respondsToSelector:@selector(mapViewDidChangeZoom:)])
         [delegate mapViewDidChangeZoom:self];
+
+
 }
 
 - (void)_mapTypeChanged
@@ -434,8 +488,13 @@ var MapTypeMappings = [
 
 @end
 
-var NilOverlay = function(map) { this.setMap(map); };
-NilOverlay.prototype = new google.maps.OverlayView();
-NilOverlay.prototype.onAdd = function() {};
-NilOverlay.prototype.onRemove = function() {};
-NilOverlay.prototype.draw = function() {};
+try {
+	var NilOverlay = function(map) { this.setMap(map); };
+	NilOverlay.prototype = new google.maps.OverlayView();
+	NilOverlay.prototype.onAdd = function() {};
+	NilOverlay.prototype.onRemove = function() {};
+	NilOverlay.prototype.draw = function() {};
+}
+catch(e) {
+	
+}
